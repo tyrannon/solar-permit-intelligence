@@ -1,0 +1,94 @@
+# Project Scope
+
+## Summary
+
+Build a working document intelligence pipeline that ingests solar permit PDFs, extracts structured data, validates it against business rules, and evaluates performance against labeled ground truth. The goal is a portfolio-quality MVP in 30 days that demonstrates practical AI engineering skills.
+
+## Problem Statement
+
+Solar installation companies submit permit applications to local jurisdictions. These documents include:
+- Permit application forms
+- Electrical diagrams
+- Site plans
+- Equipment specifications
+- Structural calculations
+
+The information in these documents is semi-structured, varies by jurisdiction, and often requires manual review to extract key data points. Errors or missing information can delay permitting by weeks.
+
+## Why Solar Permit Documents?
+
+Solar permit documents are an ideal real-world AI engineering challenge because they:
+- **Have real business value**: Faster processing means faster installations
+- **Are messy but not impossible**: Some structure exists, but OCR and extraction are non-trivial
+- **Vary meaningfully**: Different jurisdictions use different forms, creating generalization challenges
+- **Have clear ground truth**: The data either matches the source document or it doesn't
+- **Combine multiple AI tasks**: Classification, extraction, validation, evaluation
+- **Are portfolio-worthy**: Demonstrates end-to-end thinking beyond toy datasets
+
+## v1 Objective
+
+Build a pipeline that:
+1. Ingests 10-20 solar permit PDF samples
+2. Preprocesses them (PDF to image/text, page splitting)
+3. Classifies document/page types
+4. Extracts 8-10 key fields per permit set
+5. Applies 5-8 deterministic validation rules
+6. Compares results to labeled ground truth
+7. Generates a failure log and accuracy report
+
+**Success criteria**: The pipeline runs end-to-end on real documents and produces measurable accuracy metrics. Accuracy doesn't need to be perfect, but failure modes should be well-documented.
+
+## v1 Non-Goals
+
+Things explicitly **not** in scope for the MVP:
+- Production deployment or API
+- Frontend interface
+- Real-time processing
+- Multi-tenant support
+- Handling 100+ different form types
+- Advanced ML models (stick to simpler approaches first)
+- Database persistence
+- Extensive unit testing (focus on integration testing)
+- CI/CD pipelines
+- Monitoring and alerting
+- Cost optimization
+- Security hardening
+
+## Definition of Done (Day 30)
+
+The project is "done" when:
+- [ ] 10-20 real permit PDFs are in `data/raw/`
+- [ ] Ground truth labels exist in `data/labeled/`
+- [ ] Pipeline runs end-to-end from ingestion to evaluation
+- [ ] Extraction accuracy is measured per-field
+- [ ] Rule validation results are logged
+- [ ] A failure log documents at least 10 specific failure cases
+- [ ] A summary report shows overall performance
+- [ ] README and docs accurately reflect the system state
+- [ ] Code is clean enough to show to a technical reviewer
+- [ ] A clear "v2 roadmap" section exists based on learnings
+
+## Risks and Constraints
+
+**Risks**:
+- PDF parsing may be harder than expected (mitigate: start simple, use good libraries)
+- Labeled data creation is time-consuming (mitigate: start with 5-10 samples, expand gradually)
+- Extraction accuracy may be low initially (acceptable: this is a learning project)
+- Scope creep (mitigate: ruthlessly defer non-MVP features)
+
+**Constraints**:
+- 30-day timeline
+- Solo developer
+- No budget for commercial APIs (use open-source tools)
+- Limited labeled data (create manually as needed)
+- No production requirements (optimize for learning and demonstration)
+
+## Success Metrics
+
+The project will be considered successful if:
+- The pipeline demonstrates end-to-end functionality
+- Performance metrics are measured and documented
+- Failure modes are clearly identified
+- The codebase is clean and well-structured
+- The project can be demo'd in 10 minutes to a technical audience
+- Lessons learned are documented for v2 planning
