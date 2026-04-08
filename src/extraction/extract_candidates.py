@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for three core fields.
+"""Minimal candidate-field extractor for four core fields.
 
-Searches for project_address, contractor_name, and jurisdiction in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, and system_size_kw in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -8,7 +8,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 
 # Label patterns to find - just the label part, not the value capture
@@ -33,6 +33,14 @@ LABEL_PATTERNS = {
         r"jurisdiction\s*:?",
         r"permit\s+jurisdiction\s*:?",
         r"issuing\s+authority\s*:?",
+    ],
+    "system_size_kw": [
+        r"system\s+size\s*\(?\s*kw\s*\)?\s*:?",
+        r"system\s+size\s*:?",
+        r"total\s+system\s+size\s*\(?\s*kw\s*\)?\s*:?",
+        r"total\s+system\s+size\s*:?",
+        r"pv\s+system\s+size\s*\(?\s*kw\s*\)?\s*:?",
+        r"array\s+size\s*\(?\s*kw\s*\)?\s*:?",
     ],
 }
 
@@ -76,6 +84,15 @@ STOP_LABELS = {
         r"parcel\s+#",
         r"property\s+owner",
         r"owner\s+name",
+    ],
+    "system_size_kw": [
+        r"module\s+count",
+        r"number\s+of\s+modules",
+        r"panel\s+count",
+        r"inverter",
+        r"battery",
+        r"utility\s+company",
+        r"meter\s+number",
     ],
 }
 
@@ -138,6 +155,7 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "project_address": 200,
         "contractor_name": 120,
         "jurisdiction": 80,
+        "system_size_kw": 50,  # Numeric field, short value
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -229,7 +247,42 @@ def looks_like_label_or_noise(value: str) -> bool:
     return False
 
 
-def clean_extracted_value(value: str, field_name: str) -> Optional[str]:
+def parse_numeric_value(value: str) -> Optional[float]:
+    """Parse a numeric value from text.
+
+    Handles formats like:
+    - "7.2"
+    - "7.2 kW"
+    - "7.2kW"
+    - "7.2 kw"
+
+    Args:
+        value: Raw text containing a number
+
+    Returns:
+        Parsed float value or None if invalid
+    """
+    # Remove common units and whitespace
+    cleaned = value.lower().strip()
+    cleaned = re.sub(r'\s*kw\s*', '', cleaned)
+    cleaned = re.sub(r'\s*kilowatt[s]?\s*', '', cleaned)
+    cleaned = cleaned.strip()
+
+    # Try to extract a number (integer or decimal)
+    number_match = re.search(r'(\d+\.?\d*)', cleaned)
+    if number_match:
+        try:
+            num = float(number_match.group(1))
+            # Sanity check for system size (typically 1-100 kW for residential/commercial)
+            if 0.1 <= num <= 1000:
+                return num
+        except ValueError:
+            pass
+
+    return None
+
+
+def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, float]]:
     """Clean and validate an extracted value.
 
     Args:
@@ -237,7 +290,7 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[str]:
         field_name: Name of field being extracted
 
     Returns:
-        Cleaned value or None if it appears to be blank/invalid
+        Cleaned value (string or float for numeric fields) or None if invalid
     """
     # Remove extra whitespace, preserve structure
     lines = [line.strip() for line in value.split('\n') if line.strip()]
@@ -249,6 +302,11 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[str]:
         if indicator in value:
             return None
 
+    # Handle numeric fields differently
+    if field_name == "system_size_kw":
+        return parse_numeric_value(value)
+
+    # String fields below
     # If value is too short
     if len(value) < 3:
         return None
@@ -362,12 +420,13 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw"]
 
     for field_name in target_fields:
         best_result = None
 
         # Jurisdiction is conservative - only search form pages
+        # System size typically appears on form pages or summary pages
         pages_to_search = form_pages if field_name == "jurisdiction" else form_pages + other_pages
 
         # Try form pages first, then other pages (if allowed for this field)

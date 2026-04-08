@@ -1,33 +1,39 @@
 """Minimal evaluation utility for field extraction.
 
-Compares extracted field values against ground truth for three core fields:
+Compares extracted field values against ground truth for four core fields:
 - project_address
 - contractor_name
 - jurisdiction
+- system_size_kw
 """
 
 import json
 import sys
 from pathlib import Path
+from typing import Union, Optional
 
 # Import the extraction function
 from src.extraction.extract_candidates import extract_candidates
 
 
-def normalize_for_comparison(value: str | None) -> str:
+def normalize_for_comparison(value: Union[str, float, None]) -> Union[str, float]:
     """Normalize a value for comparison.
 
     Args:
-        value: Field value (may be None)
+        value: Field value (may be None, string, or float)
 
     Returns:
-        Normalized string for comparison
+        Normalized value for comparison (string or float)
     """
     if value is None:
         return ""
 
-    # Remove extra whitespace, lowercase for comparison
-    return " ".join(value.split()).lower().strip()
+    # Numeric values stay as-is
+    if isinstance(value, (int, float)):
+        return float(value)
+
+    # String values: remove extra whitespace, lowercase
+    return " ".join(str(value).split()).lower().strip()
 
 
 def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> dict:
@@ -52,7 +58,7 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
     ground_truth = ground_truth_data.get('ground_truth', {})
 
     # Fields to evaluate
-    target_fields = ["project_address", "contractor_name", "jurisdiction"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw"]
 
     # Perform comparison
     results = {
@@ -72,8 +78,16 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
         expected_norm = normalize_for_comparison(expected_value)
         actual_norm = normalize_for_comparison(actual_value)
 
-        # Check exact match (after normalization)
-        exact_match = expected_norm == actual_norm and expected_norm != ""
+        # Check match based on field type
+        if field_name == "system_size_kw":
+            # Numeric field: allow small tolerance (0.01 kW)
+            if isinstance(expected_norm, (int, float)) and isinstance(actual_norm, (int, float)):
+                exact_match = abs(expected_norm - actual_norm) < 0.01
+            else:
+                exact_match = False
+        else:
+            # String fields: exact match after normalization
+            exact_match = expected_norm == actual_norm and expected_norm != ""
 
         if exact_match:
             results["exact_matches"] += 1

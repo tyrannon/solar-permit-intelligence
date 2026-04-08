@@ -103,6 +103,36 @@ When adding code:
 
 ---
 
+## Python Execution Rule
+
+For any command that runs project Python modules, do not guess between `python` and `python3`.
+
+Always use the repo virtual environment interpreter directly:
+
+```bash
+./.venv/bin/python -m <module>
+```
+
+Examples:
+
+```bash
+# Ingestion
+./.venv/bin/python -m src.ingestion.ingest_pdf data/raw/sample.pdf
+
+# Inspection
+./.venv/bin/python -m src.utils.inspect_processed data/processed/sample.json
+
+# Extraction
+./.venv/bin/python -m src.extraction.extract_candidates data/processed/sample.json
+
+# Evaluation
+./.venv/bin/python -m src.evaluation.evaluate_extraction \
+  data/processed/sample.json \
+  data/labeled/sample_truth.json
+```
+
+---
+
 ## Documentation Principles
 
 Documentation should:
