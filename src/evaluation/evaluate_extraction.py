@@ -1,10 +1,11 @@
 """Minimal evaluation utility for field extraction.
 
-Compares extracted field values against ground truth for four core fields:
+Compares extracted field values against ground truth for five core fields:
 - project_address
 - contractor_name
 - jurisdiction
 - system_size_kw
+- module_count
 """
 
 import json
@@ -16,21 +17,25 @@ from typing import Union, Optional
 from src.extraction.extract_candidates import extract_candidates
 
 
-def normalize_for_comparison(value: Union[str, float, None]) -> Union[str, float]:
+def normalize_for_comparison(value: Union[str, float, int, None]) -> Union[str, float, int]:
     """Normalize a value for comparison.
 
     Args:
-        value: Field value (may be None, string, or float)
+        value: Field value (may be None, string, float, or int)
 
     Returns:
-        Normalized value for comparison (string or float)
+        Normalized value for comparison (string, float, or int)
     """
     if value is None:
         return ""
 
-    # Numeric values stay as-is
-    if isinstance(value, (int, float)):
-        return float(value)
+    # Integer values (keep as int for exact comparison)
+    if isinstance(value, int):
+        return value
+
+    # Float values
+    if isinstance(value, float):
+        return value
 
     # String values: remove extra whitespace, lowercase
     return " ".join(str(value).split()).lower().strip()
@@ -58,7 +63,7 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
     ground_truth = ground_truth_data.get('ground_truth', {})
 
     # Fields to evaluate
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count"]
 
     # Perform comparison
     results = {
@@ -80,9 +85,21 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
 
         # Check match based on field type
         if field_name == "system_size_kw":
-            # Numeric field: allow small tolerance (0.01 kW)
+            # Float field: allow small tolerance (0.01 kW)
             if isinstance(expected_norm, (int, float)) and isinstance(actual_norm, (int, float)):
                 exact_match = abs(expected_norm - actual_norm) < 0.01
+            elif expected_norm == "" and actual_norm == "":
+                # Both null - counts as match
+                exact_match = True
+            else:
+                exact_match = False
+        elif field_name == "module_count":
+            # Integer field: exact match
+            if isinstance(expected_norm, int) and isinstance(actual_norm, int):
+                exact_match = expected_norm == actual_norm
+            elif expected_norm == "" and actual_norm == "":
+                # Both null - counts as match
+                exact_match = True
             else:
                 exact_match = False
         else:

@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for four core fields.
+"""Minimal candidate-field extractor for five core fields.
 
-Searches for project_address, contractor_name, jurisdiction, and system_size_kw in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, and module_count in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -41,6 +41,15 @@ LABEL_PATTERNS = {
         r"total\s+system\s+size\s*:?",
         r"pv\s+system\s+size\s*\(?\s*kw\s*\)?\s*:?",
         r"array\s+size\s*\(?\s*kw\s*\)?\s*:?",
+    ],
+    "module_count": [
+        r"module\s+(?:quantity|count)\s*:?",
+        r"number\s+of\s+modules\s*:?",
+        r"total\s+modules\s*:?",
+        r"module\s+qty\s*:?",
+        r"panel\s+(?:quantity|count)\s*:?",
+        r"number\s+of\s+panels\s*:?",
+        r"total\s+panels\s*:?",
     ],
 }
 
@@ -93,6 +102,17 @@ STOP_LABELS = {
         r"battery",
         r"utility\s+company",
         r"meter\s+number",
+    ],
+    "module_count": [
+        r"module\s+model",
+        r"module\s+type",
+        r"panel\s+model",
+        r"panel\s+type",
+        r"module\s+manufacturer",
+        r"inverter",
+        r"system\s+size",
+        r"wattage",
+        r"watts",
     ],
 }
 
@@ -156,6 +176,7 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "contractor_name": 120,
         "jurisdiction": 80,
         "system_size_kw": 50,  # Numeric field, short value
+        "module_count": 50,    # Integer field, short value
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -282,7 +303,48 @@ def parse_numeric_value(value: str) -> Optional[float]:
     return None
 
 
-def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, float]]:
+def parse_integer_value(value: str) -> Optional[int]:
+    """Parse an integer value from text.
+
+    Handles formats like:
+    - "24"
+    - "24 modules"
+    - "24 panels"
+
+    Rejects values that look like wattage or model numbers.
+
+    Args:
+        value: Raw text containing an integer
+
+    Returns:
+        Parsed integer value or None if invalid
+    """
+    cleaned = value.strip()
+
+    # Reject if it looks like wattage (contains "w" or "watt")
+    if re.search(r'\d+\s*w(?:att)?(?:s)?\b', cleaned, re.IGNORECASE):
+        return None
+
+    # Reject if it contains model-like patterns (letters mixed with numbers)
+    # e.g., "ABC-400" or "Model 400W"
+    if re.search(r'[a-z]\d+|[a-z]-\d+|\d+-[a-z]', cleaned, re.IGNORECASE):
+        return None
+
+    # Try to extract just the integer (first occurrence)
+    number_match = re.search(r'(\d+)', cleaned)
+    if number_match:
+        try:
+            num = int(number_match.group(1))
+            # Sanity check for module count (typically 5-100 for residential, up to 500 for commercial)
+            if 1 <= num <= 1000:
+                return num
+        except ValueError:
+            pass
+
+    return None
+
+
+def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, float, int]]:
     """Clean and validate an extracted value.
 
     Args:
@@ -290,7 +352,7 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
         field_name: Name of field being extracted
 
     Returns:
-        Cleaned value (string or float for numeric fields) or None if invalid
+        Cleaned value (string, float, or int depending on field) or None if invalid
     """
     # Remove extra whitespace, preserve structure
     lines = [line.strip() for line in value.split('\n') if line.strip()]
@@ -305,6 +367,9 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
     # Handle numeric fields differently
     if field_name == "system_size_kw":
         return parse_numeric_value(value)
+
+    if field_name == "module_count":
+        return parse_integer_value(value)
 
     # String fields below
     # If value is too short
@@ -420,13 +485,13 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count"]
 
     for field_name in target_fields:
         best_result = None
 
         # Jurisdiction is conservative - only search form pages
-        # System size typically appears on form pages or summary pages
+        # System size and module count typically appear on form pages or summary pages
         pages_to_search = form_pages if field_name == "jurisdiction" else form_pages + other_pages
 
         # Try form pages first, then other pages (if allowed for this field)
