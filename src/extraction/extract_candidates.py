@@ -96,6 +96,9 @@ STOP_LABELS = {
         r"project\s+description",
     ],
     "jurisdiction": [
+        r"building\s+division",
+        r"permit\s+application\s+type",
+        r"application\s+type",
         r"permit\s+number",
         r"permit\s+#",
         r"project\s+address",
@@ -104,6 +107,7 @@ STOP_LABELS = {
         r"parcel\s+#",
         r"property\s+owner",
         r"owner\s+name",
+        r"scope\s+summary",
     ],
     "system_size_kw": [
         r"module\s+count",
@@ -126,6 +130,8 @@ STOP_LABELS = {
         r"watts",
     ],
     "inverter_model": [
+        r"scope\s+summary",
+        r"system\s+summary",
         r"number\s+of\s+inverters",
         r"inverter\s+quantity",
         r"rapid\s+shutdown",
@@ -136,6 +142,7 @@ STOP_LABELS = {
         r"interconnection",
         r"module\s+manufacturer",
         r"module\s+model",
+        r"module\s+quantity",
     ],
 }
 
@@ -248,6 +255,9 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
             # Create a pattern for the last few words
             trailing_pattern = r'\s+' + r'\s+'.join(re.escape(w) for w in words[:2]) + r'.*$'
             value = re.sub(trailing_pattern, '', value, flags=re.IGNORECASE)
+
+    # Remove trailing slashes and whitespace (common in jurisdiction fields)
+    value = value.rstrip('/ \t')
 
     return value.strip()
 
