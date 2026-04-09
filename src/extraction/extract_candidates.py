@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for six core fields.
+"""Minimal candidate-field extractor for eight core fields.
 
-Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, and inverter_model in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, and battery_model in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -58,6 +58,28 @@ LABEL_PATTERNS = {
         r"inverter\s+model\s+number\s*:",  # Require colon for "model number"
         r"inverter\s+model\s*:",           # Require colon for standalone "model"
         r"inverter\s+manufacturer\s*:",    # Require colon for standalone "manufacturer"
+    ],
+    "battery_present": [
+        r"battery\s+energy\s+storage\s*:?",
+        r"energy\s+storage\s+system\s*:?",
+        r"battery\s+storage\s*:?",
+        r"battery\s+included\s*:?",
+        r"battery\s*:?",
+        r"ess\s*:?",
+        r"battery\s+system\s*:?",
+    ],
+    "battery_model": [
+        r"battery\s+manufacturer\s*/\s*model\s*:?",
+        r"battery\s+manufacturer\s+/\s+model\s*:?",
+        r"battery\s+manufacturer\s+and\s+model\s*:?",
+        r"battery\s+storage\s+model\s*:?",
+        r"battery\s+model\s*:",           # Require colon for standalone "battery model"
+        r"battery\s+manufacturer\s*:",    # Require colon for standalone "battery manufacturer"
+        r"storage\s+model\s*:",           # Require colon for standalone "storage model"
+        r"ess\s+model\s*:",               # Require colon for standalone "ESS model"
+        r"energy\s+storage\s+system\s+model\s*:?",
+        r"battery\s+storage\s*:",         # Require colon to avoid matching narrative
+        r"battery\s+energy\s+storage\s*:", # "Battery Energy Storage: Yes - Tesla Powerwall 2"
     ],
 }
 
@@ -144,6 +166,34 @@ STOP_LABELS = {
         r"module\s+model",
         r"module\s+quantity",
     ],
+    "battery_present": [
+        r"battery\s+model",
+        r"battery\s+manufacturer",
+        r"main\s+service\s+panel",
+        r"service\s+panel",
+        r"point\s+of\s+connection",
+        r"interconnection",
+        r"rapid\s+shutdown",
+        r"array\s+configuration",
+        r"system\s+overview",
+    ],
+    "battery_model": [
+        r"battery\s+gateway",
+        r"battery\s+inverter",
+        r"battery\s+capacity",
+        r"battery\s+specifications",
+        r"energy\s+capacity",
+        r"power\s+rating",
+        r"usable\s+capacity",
+        r"backup\s+gateway",
+        r"racking\s+system",
+        r"main\s+service\s+panel",
+        r"service\s+panel",
+        r"installation\s+notes",
+        r"array\s+configuration",
+        r"quantity",
+        r"specifications",
+    ],
 }
 
 
@@ -208,6 +258,8 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "system_size_kw": 50,  # Numeric field, short value
         "module_count": 50,    # Integer field, short value
         "inverter_model": 100, # String field, model names can be long
+        "battery_present": 150, # Boolean field, may have descriptive text
+        "battery_model": 100,  # String field, battery model names
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -378,7 +430,92 @@ def parse_integer_value(value: str) -> Optional[int]:
     return None
 
 
-def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, float, int]]:
+def parse_boolean_value(value: str) -> Optional[bool]:
+    """Parse a boolean value from text.
+
+    Handles formats like:
+    - "yes" / "no"
+    - "Yes - Tesla Powerwall 2"
+    - "No battery proposed"
+    - "included" / "not included"
+    - "no ESS"
+
+    Returns True if battery presence is clearly indicated,
+    False if battery absence is clearly indicated,
+    None if ambiguous or unclear.
+
+    Args:
+        value: Raw text potentially indicating boolean state
+
+    Returns:
+        True, False, or None
+    """
+    cleaned = value.lower().strip()
+
+    # Explicit "yes" patterns - battery is present
+    yes_patterns = [
+        r'^yes\b',
+        r'\byes\b.*battery',
+        r'\byes\b.*storage',
+        r'\byes\b.*ess',
+        r'battery.*\byes\b',          # "Battery: Yes"
+        r'storage.*\byes\b',          # "Energy Storage: Yes"
+        r'ess.*\byes\b',              # "ESS: Yes"
+        r'battery\s+included',
+        r'ess\s+included',
+        r'storage\s+included',
+        r'with\s+battery',
+        r'includes\s+battery',
+    ]
+
+    for pattern in yes_patterns:
+        if re.search(pattern, cleaned):
+            return True
+
+    # Explicit "no" patterns - battery is absent
+    no_patterns = [
+        r'^no\b',
+        r'\bno\s+battery',
+        r'\bno\s+ess',
+        r'\bno\s+storage',
+        r'\bno\s+energy\s+storage',
+        r'battery\s+not\s+included',
+        r'ess\s+not\s+included',
+        r'without\s+battery',
+        r'does\s+not\s+include\s+battery',
+    ]
+
+    for pattern in no_patterns:
+        if re.search(pattern, cleaned):
+            return False
+
+    # If we can't determine clearly, return None
+    return None
+
+
+def clean_battery_model(value: str) -> str:
+    """Clean battery model value by removing common prefixes and annotations.
+
+    Args:
+        value: Raw battery model text
+
+    Returns:
+        Cleaned battery model string
+    """
+    # Remove "Yes - " or "No - " prefix (from "Battery Storage: Yes - Tesla Powerwall 2")
+    value = re.sub(r'^(?:yes|no)\s*[-–—]\s*', '', value, flags=re.IGNORECASE)
+
+    # Remove capacity annotations in parentheses at the end
+    # e.g., "(13.5 kWh)" or "(5 kW / 13.5 kWh)"
+    value = re.sub(r'\s*\([^)]*k[Ww]h?[^)]*\)\s*$', '', value)
+
+    # Remove other common annotations in parentheses at the end
+    value = re.sub(r'\s*\([^)]+\)\s*$', '', value)
+
+    return value.strip()
+
+
+def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, float, int, bool]]:
     """Clean and validate an extracted value.
 
     Args:
@@ -386,7 +523,7 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
         field_name: Name of field being extracted
 
     Returns:
-        Cleaned value (string, float, or int depending on field) or None if invalid
+        Cleaned value (string, float, int, or bool depending on field) or None if invalid
     """
     # Remove extra whitespace, preserve structure
     lines = [line.strip() for line in value.split('\n') if line.strip()]
@@ -398,12 +535,19 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
         if indicator in value:
             return None
 
-    # Handle numeric fields differently
+    # Handle type-specific fields
     if field_name == "system_size_kw":
         return parse_numeric_value(value)
 
     if field_name == "module_count":
         return parse_integer_value(value)
+
+    if field_name == "battery_present":
+        return parse_boolean_value(value)
+
+    # Battery model cleanup
+    if field_name == "battery_model":
+        value = clean_battery_model(value)
 
     # String fields below
     # If value is too short
@@ -433,6 +577,28 @@ def extract_field_from_page(field_name: str, page_text: str, page_num: int, is_f
     Returns:
         Dictionary with extraction results
     """
+    # Special handling for battery_present - check entire page text for indicators
+    if field_name == "battery_present":
+        battery_value = parse_boolean_value(page_text)
+        if battery_value is not None:
+            return {
+                "field_name": field_name,
+                "page_number": page_num,
+                "matched_label": "battery indicator in page text",
+                "candidate_value": battery_value,
+                "confidence": 0.8,
+                "note": "found battery presence/absence indicator in page text"
+            }
+        else:
+            return {
+                "field_name": field_name,
+                "page_number": page_num,
+                "matched_label": None,
+                "candidate_value": None,
+                "confidence": 0.0,
+                "note": "no clear battery indicator found"
+            }
+
     patterns = LABEL_PATTERNS.get(field_name, [])
 
     for pattern in patterns:
@@ -445,7 +611,8 @@ def extract_field_from_page(field_name: str, page_text: str, page_num: int, is_f
             raw_value = extract_value_after_label(page_text, label_end, field_name)
             cleaned_value = clean_extracted_value(raw_value, field_name)
 
-            if cleaned_value:
+            # Check for None explicitly (not just falsy, since False is a valid boolean value)
+            if cleaned_value is not None:
                 return {
                     "field_name": field_name,
                     "page_number": page_num,
@@ -519,7 +686,7 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model"]
 
     for field_name in target_fields:
         best_result = None

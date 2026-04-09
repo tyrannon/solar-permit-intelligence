@@ -18,17 +18,21 @@ from typing import Union, Optional
 from src.extraction.extract_candidates import extract_candidates
 
 
-def normalize_for_comparison(value: Union[str, float, int, None]) -> Union[str, float, int]:
+def normalize_for_comparison(value: Union[str, float, int, bool, None]) -> Union[str, float, int, bool]:
     """Normalize a value for comparison.
 
     Args:
-        value: Field value (may be None, string, float, or int)
+        value: Field value (may be None, string, float, int, or bool)
 
     Returns:
-        Normalized value for comparison (string, float, or int)
+        Normalized value for comparison (string, float, int, or bool)
     """
     if value is None:
         return ""
+
+    # Boolean values (keep as bool for exact comparison)
+    if isinstance(value, bool):
+        return value
 
     # Integer values (keep as int for exact comparison)
     if isinstance(value, int):
@@ -64,7 +68,7 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
     ground_truth = ground_truth_data.get('ground_truth', {})
 
     # Fields to evaluate
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model"]
 
     # Perform comparison
     results = {
@@ -103,9 +107,22 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
                 exact_match = True
             else:
                 exact_match = False
+        elif field_name == "battery_present":
+            # Boolean field: exact match (true/false/null)
+            if isinstance(expected_value, bool) and isinstance(actual_value, bool):
+                exact_match = expected_value == actual_value
+            elif expected_norm == "" and actual_norm == "":
+                # Both null - counts as match
+                exact_match = True
+            else:
+                exact_match = False
         else:
             # String fields: exact match after normalization
-            exact_match = expected_norm == actual_norm and expected_norm != ""
+            if expected_norm == "" and actual_norm == "":
+                # Both null - counts as match
+                exact_match = True
+            else:
+                exact_match = expected_norm == actual_norm and expected_norm != ""
 
         if exact_match:
             results["exact_matches"] += 1
@@ -144,8 +161,8 @@ def print_evaluation_results(results: dict):
         confidence = field_result['confidence']
 
         print(f"\nField: {field_name}")
-        print(f"  Expected: {expected if expected else '(null)'}")
-        print(f"  Actual:   {actual if actual else '(null)'}")
+        print(f"  Expected: {expected if expected is not None else '(null)'}")
+        print(f"  Actual:   {actual if actual is not None else '(null)'}")
         print(f"  Page:     {page if page else 'N/A'}")
         print(f"  Confidence: {confidence:.2f}")
         print(f"  Match:    {'✓ YES' if exact_match else '✗ NO'}")
