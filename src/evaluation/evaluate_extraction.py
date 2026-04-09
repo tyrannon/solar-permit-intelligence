@@ -1,11 +1,12 @@
 """Minimal evaluation utility for field extraction.
 
-Compares extracted field values against ground truth for five core fields:
+Compares extracted field values against ground truth for six core fields:
 - project_address
 - contractor_name
 - jurisdiction
 - system_size_kw
 - module_count
+- inverter_model
 """
 
 import json
@@ -63,7 +64,7 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
     ground_truth = ground_truth_data.get('ground_truth', {})
 
     # Fields to evaluate
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model"]
 
     # Perform comparison
     results = {

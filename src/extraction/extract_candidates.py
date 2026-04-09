@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for five core fields.
+"""Minimal candidate-field extractor for six core fields.
 
-Searches for project_address, contractor_name, jurisdiction, system_size_kw, and module_count in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, and inverter_model in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -50,6 +50,14 @@ LABEL_PATTERNS = {
         r"panel\s+(?:quantity|count)\s*:?",
         r"number\s+of\s+panels\s*:?",
         r"total\s+panels\s*:?",
+    ],
+    "inverter_model": [
+        r"inverter\s+manufacturer\s*/\s*model\s*:?",
+        r"inverter\s+manufacturer\s+/\s+model\s*:?",
+        r"inverter\s+manufacturer\s+and\s+model\s*:?",
+        r"inverter\s+model\s+number\s*:",  # Require colon for "model number"
+        r"inverter\s+model\s*:",           # Require colon for standalone "model"
+        r"inverter\s+manufacturer\s*:",    # Require colon for standalone "manufacturer"
     ],
 }
 
@@ -117,6 +125,18 @@ STOP_LABELS = {
         r"wattage",
         r"watts",
     ],
+    "inverter_model": [
+        r"number\s+of\s+inverters",
+        r"inverter\s+quantity",
+        r"rapid\s+shutdown",
+        r"battery",
+        r"main\s+service\s+panel",
+        r"service\s+panel",
+        r"point\s+of\s+connection",
+        r"interconnection",
+        r"module\s+manufacturer",
+        r"module\s+model",
+    ],
 }
 
 
@@ -180,6 +200,7 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "jurisdiction": 80,
         "system_size_kw": 50,  # Numeric field, short value
         "module_count": 50,    # Integer field, short value
+        "inverter_model": 100, # String field, model names can be long
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -488,13 +509,13 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model"]
 
     for field_name in target_fields:
         best_result = None
 
         # Jurisdiction is conservative - only search form pages
-        # System size and module count typically appear on form pages or summary pages
+        # System size, module count, and inverter model typically appear on form pages or summary pages
         pages_to_search = form_pages if field_name == "jurisdiction" else form_pages + other_pages
 
         # Try form pages first, then other pages (if allowed for this field)
