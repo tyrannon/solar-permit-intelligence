@@ -59,9 +59,12 @@ STOP_LABELS = {
     "project_address": [
         r"permit\s+number",
         r"permit\s+#",
+        r"assessor\s+parcel\s+number",  # Address-adjacent metadata
         r"parcel\s+number",
         r"parcel\s+#",
         r"apn",
+        r"assessor",  # Standalone "Assessor" label
+        r"parcel",    # Standalone "Parcel" label
         r"property\s+owner",
         r"owner\s+name",
         r"owner\s+phone",
