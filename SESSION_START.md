@@ -54,25 +54,32 @@ ingest → inspect → extract → evaluate → review mismatches → iterate �
 
 ### Ingest a raw PDF
 ```bash
-python -m src.ingestion.ingest_pdf data/raw/<file>.pdf
+./.venv/bin/python -m src.ingestion.ingest_pdf data/raw/<file>.pdf
 ```
 
 ### Inspect processed JSON
 ```bash
-python -m src.utils.inspect_processed data/processed/<file>.json
+./.venv/bin/python -m src.utils.inspect_processed data/processed/<file>.json
 ```
 
 ### Extract candidate fields
 ```bash
-python -m src.extraction.extract_candidates data/processed/<file>.json
+./.venv/bin/python -m src.extraction.extract_candidates data/processed/<file>.json
 ```
 
 ### Evaluate against ground truth
 ```bash
-python -m src.evaluation.evaluate_extraction \
+./.venv/bin/python -m src.evaluation.evaluate_extraction \
   data/processed/<file>.json \
   data/labeled/<truth_file>.json
 ```
+
+### Run regression check on all fixtures
+```bash
+./.venv/bin/python -m src.evaluation.regression_check
+```
+
+**Use this before commits** to verify all fixtures still pass at 100% accuracy.
 
 ---
 
@@ -100,18 +107,21 @@ Using `fictional_solar_permit_packet.pdf`:
 
 ```bash
 # 1. Ingest
-python -m src.ingestion.ingest_pdf data/raw/fictional_solar_permit_packet.pdf
+./.venv/bin/python -m src.ingestion.ingest_pdf data/raw/fictional_solar_permit_packet.pdf
 
 # 2. Inspect
-python -m src.utils.inspect_processed data/processed/fictional_solar_permit_packet.json
+./.venv/bin/python -m src.utils.inspect_processed data/processed/fictional_solar_permit_packet.json
 
 # 3. Extract
-python -m src.extraction.extract_candidates data/processed/fictional_solar_permit_packet.json
+./.venv/bin/python -m src.extraction.extract_candidates data/processed/fictional_solar_permit_packet.json
 
 # 4. Evaluate
-python -m src.evaluation.evaluate_extraction \
+./.venv/bin/python -m src.evaluation.evaluate_extraction \
   data/processed/fictional_solar_permit_packet.json \
   data/labeled/fictional_solar_permit_packet_truth.json
+
+# 5. Regression check (all fixtures)
+./.venv/bin/python -m src.evaluation.regression_check
 ```
 
 Review output to see which fields matched and which failed.
@@ -143,6 +153,7 @@ git push
 - Always activate `.venv` before running commands
 - Re-ingest if the raw PDF changed
 - Ensure ground truth files match current PDF version
+- **Run regression check before commits** to verify all fixtures still pass
 - Commit after meaningful milestones (working extraction, improved accuracy, etc.)
 - Keep iterations small and testable
 - Review `git status` before committing to avoid accidental commits
