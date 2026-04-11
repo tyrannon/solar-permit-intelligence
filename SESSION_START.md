@@ -81,6 +81,13 @@ ingest → inspect → extract → evaluate → review mismatches → iterate �
 
 **Use this before commits** to verify all fixtures still pass at 100% accuracy.
 
+### Run validation rules on a fixture
+```bash
+./.venv/bin/python -m src.validation.run_validation data/processed/<file>.json
+```
+
+Runs deterministic validation rules on extracted field data.
+
 ---
 
 ## 5. File Locations
