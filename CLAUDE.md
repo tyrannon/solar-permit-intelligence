@@ -245,3 +245,13 @@ The current top priority is to build a trustworthy document understanding pipeli
 before advancing to extraction and validation.
 
 Protect momentum. Keep it real. Keep it small.
+
+## Development Principles
+
+- Work in small, well-defined truth slices
+- Respect field dependencies (gating vs dependent fields)
+- Do not invent data — return review on ambiguity
+- Prioritize legibility over cleverness
+- Always explain logic in plain English
+- Include edge cases and test suggestions
+- Preserve existing working behavior unless explicitly changing it
