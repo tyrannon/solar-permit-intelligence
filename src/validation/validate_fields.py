@@ -136,6 +136,35 @@ def validate_module_count_vs_system_size_reasonable(
     )
 
 
+def validate_inverter_model_required(
+    inverter_model: Optional[str]
+) -> tuple[str, str]:
+    """Check that inverter model is specified.
+
+    Logic:
+    - If inverter_model is present and non-empty → PASS
+    - If inverter_model is missing, null, or empty → REVIEW_REQUIRED
+
+    Args:
+        inverter_model: Inverter model string (or None)
+
+    Returns:
+        Tuple of (status, explanation)
+    """
+    # Missing or empty inverter model - needs review
+    if inverter_model is None or str(inverter_model).strip() == "":
+        return (
+            REVIEW_REQUIRED,
+            "Inverter model not specified"
+        )
+
+    # Inverter model present
+    return (
+        PASS,
+        f"Inverter model specified: {inverter_model}"
+    )
+
+
 def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str]]:
     """Run all validation rules on extracted field data.
 
@@ -153,6 +182,7 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
     battery_model = extractions.get('battery_model', {}).get('candidate_value')
     module_count = extractions.get('module_count', {}).get('candidate_value')
     system_size_kw = extractions.get('system_size_kw', {}).get('candidate_value')
+    inverter_model = extractions.get('inverter_model', {}).get('candidate_value')
 
     # Run each rule
     results['battery_requires_battery_model'] = validate_battery_requires_battery_model(
@@ -161,6 +191,10 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
 
     results['module_count_vs_system_size_reasonable'] = validate_module_count_vs_system_size_reasonable(
         module_count, system_size_kw
+    )
+
+    results['inverter_model_required'] = validate_inverter_model_required(
+        inverter_model
     )
 
     return results
