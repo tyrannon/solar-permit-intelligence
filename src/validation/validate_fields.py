@@ -165,6 +165,64 @@ def validate_inverter_model_required(
     )
 
 
+def validate_required_core_fields_present(
+    project_address: Optional[str],
+    contractor_name: Optional[str],
+    jurisdiction: Optional[str],
+    system_size_kw: Optional[float],
+    inverter_model: Optional[str]
+) -> tuple[str, str]:
+    """Check that all required core fields are present and non-empty.
+
+    Logic:
+    - Check five core fields: project_address, contractor_name, jurisdiction,
+      system_size_kw, inverter_model
+    - If all are present and non-empty → PASS
+    - If one or more are missing/null/empty → REVIEW_REQUIRED
+
+    Args:
+        project_address: Project address string (or None)
+        contractor_name: Contractor name string (or None)
+        jurisdiction: Jurisdiction string (or None)
+        system_size_kw: System size in kW DC (or None)
+        inverter_model: Inverter model string (or None)
+
+    Returns:
+        Tuple of (status, explanation)
+    """
+    missing_fields = []
+
+    # Check each core field
+    if project_address is None or str(project_address).strip() == "":
+        missing_fields.append("project_address")
+
+    if contractor_name is None or str(contractor_name).strip() == "":
+        missing_fields.append("contractor_name")
+
+    if jurisdiction is None or str(jurisdiction).strip() == "":
+        missing_fields.append("jurisdiction")
+
+    if system_size_kw is None:
+        missing_fields.append("system_size_kw")
+
+    if inverter_model is None or str(inverter_model).strip() == "":
+        missing_fields.append("inverter_model")
+
+    # If any fields are missing - needs review
+    if missing_fields:
+        missing_str = ", ".join(missing_fields)
+        return (
+            REVIEW_REQUIRED,
+            f"Missing core fields: {missing_str}"
+        )
+
+    # All core fields present
+    return (
+        PASS,
+        "All core fields present"
+    )
+
+
 def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str]]:
     """Run all validation rules on extracted field data.
 
@@ -178,6 +236,9 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
     results = {}
 
     # Extract field values from extractions dict
+    project_address = extractions.get('project_address', {}).get('candidate_value')
+    contractor_name = extractions.get('contractor_name', {}).get('candidate_value')
+    jurisdiction = extractions.get('jurisdiction', {}).get('candidate_value')
     battery_present = extractions.get('battery_present', {}).get('candidate_value')
     battery_model = extractions.get('battery_model', {}).get('candidate_value')
     module_count = extractions.get('module_count', {}).get('candidate_value')
@@ -185,6 +246,10 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
     inverter_model = extractions.get('inverter_model', {}).get('candidate_value')
 
     # Run each rule
+    results['required_core_fields_present'] = validate_required_core_fields_present(
+        project_address, contractor_name, jurisdiction, system_size_kw, inverter_model
+    )
+
     results['battery_requires_battery_model'] = validate_battery_requires_battery_model(
         battery_present, battery_model
     )
