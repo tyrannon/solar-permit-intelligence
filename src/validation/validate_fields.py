@@ -65,6 +65,52 @@ def validate_battery_requires_battery_model(
     )
 
 
+def validate_battery_model_requires_battery_present(
+    battery_model: Optional[str],
+    battery_present: Optional[bool]
+) -> tuple[str, str]:
+    """Check that if a battery model is specified, battery is marked as present.
+
+    Logic:
+    - If battery_model is missing/null/empty → PASS (no model to validate)
+    - If battery_model is present and battery_present is True → PASS
+    - If battery_model is present and battery_present is False → REVIEW_REQUIRED
+    - If battery_model is present and battery_present is null → REVIEW_REQUIRED
+
+    Args:
+        battery_model: Battery model string (or None)
+        battery_present: Whether battery is present (True/False/None)
+
+    Returns:
+        Tuple of (status, explanation)
+    """
+    # No battery model specified - rule does not apply
+    if battery_model is None or str(battery_model).strip() == "":
+        return (
+            PASS,
+            "No battery model specified - rule does not apply"
+        )
+
+    # Battery model is specified - check battery_present consistency
+    if battery_present is True:
+        return (
+            PASS,
+            f"Battery model '{battery_model}' is consistent with battery_present=True"
+        )
+
+    if battery_present is False:
+        return (
+            REVIEW_REQUIRED,
+            f"Battery model '{battery_model}' specified but battery_present=False (inconsistent)"
+        )
+
+    # battery_present is None/unclear
+    return (
+        REVIEW_REQUIRED,
+        f"Battery model '{battery_model}' specified but battery_present is unclear"
+    )
+
+
 def validate_module_count_vs_system_size_reasonable(
     module_count: Optional[int],
     system_size_kw: Optional[float]
@@ -252,6 +298,10 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
 
     results['battery_requires_battery_model'] = validate_battery_requires_battery_model(
         battery_present, battery_model
+    )
+
+    results['battery_model_requires_battery_present'] = validate_battery_model_requires_battery_present(
+        battery_model, battery_present
     )
 
     results['module_count_vs_system_size_reasonable'] = validate_module_count_vs_system_size_reasonable(
