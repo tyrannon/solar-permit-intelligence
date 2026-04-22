@@ -2,6 +2,14 @@
 
 This document defines the target fields for v1 extraction. These fields represent the minimum viable set of information needed to validate a solar permit application.
 
+**Note**: The field schema is evolving to support both permit packets and SolarAPP approval documents. See [ROADMAP.md](../ROADMAP.md) for planned additions including:
+- Service/interconnection fields (`main_bus_amp_rating`, `main_breaker_amp_rating`, `grid_voltage`)
+- Approval metadata (`approval_id`, `ahj`, `project_type`)
+- Equipment manufacturer splits (`module_manufacturer`, `inverter_manufacturer`)
+- AC/DC system size split (`system_size_ac_kw`, `system_size_dc_kw`)
+
+The fields below represent the **current v1 schema**.
+
 ## Target Fields
 
 ### project_address
@@ -44,6 +52,7 @@ This document defines the target fields for v1 extraction. These fields represen
   - May be written as "8.5kW" or "8500W" or "8.5 kW DC"
   - Sometimes calculated from module count × module wattage
   - Can appear on electrical diagram or permit form
+- **Schema Evolution Note**: This field is ambiguous (AC or DC). Phase 5 will split this into `system_size_ac_kw` and `system_size_dc_kw`. For now, interpret as DC system size unless document clearly specifies AC.
 
 ### module_count
 - **Description**: Total number of solar panels/modules

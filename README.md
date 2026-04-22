@@ -1,15 +1,22 @@
 # Solar Permit Intelligence
 
-A focused document intelligence MVP for solar permit materials. This system ingests solar-related PDFs and images, classifies document types, extracts structured data, validates results against deterministic rules, and evaluates performance against labeled truth data.
+A focused document intelligence MVP for solar permit packets and SolarAPP approval documents. This system ingests solar-related PDFs, classifies document types, extracts structured data, validates results against deterministic rules, and evaluates performance against labeled truth data.
 
 ## Why This Project Matters
 
-Solar permitting involves complex, semi-standardized documentation that varies by jurisdiction. Automating the extraction and validation of permit data can:
+Solar permitting involves complex, semi-standardized documentation that varies by jurisdiction. This project targets two document classes:
+1. **Permit/application packets** - submitted by contractors to AHJs
+2. **SolarAPP approval documents** - structured approval/inspection checklists
+
+Automating the extraction and validation of this data can:
 - Reduce manual review time for solar installers
 - Catch errors and missing information earlier in the process
+- Validate submitted permits against approved plans
 - Provide a concrete testbed for real-world document intelligence challenges
 
 This project demonstrates practical AI engineering: handling messy PDFs, extracting structured data, applying business logic, and measuring accuracy against ground truth.
+
+**See [ROADMAP.md](ROADMAP.md) for the phased implementation plan and rationale for the dual-document approach.**
 
 ## MVP Scope
 

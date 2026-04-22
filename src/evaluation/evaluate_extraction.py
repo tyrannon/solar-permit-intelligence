@@ -1,12 +1,16 @@
 """Minimal evaluation utility for field extraction.
 
-Compares extracted field values against ground truth for six core fields:
+Compares extracted field values against ground truth for ten core fields:
 - project_address
 - contractor_name
 - jurisdiction
 - system_size_kw
 - module_count
 - inverter_model
+- battery_present
+- battery_model
+- main_bus_amp_rating
+- main_breaker_amp_rating
 """
 
 import json
@@ -68,7 +72,7 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
     ground_truth = ground_truth_data.get('ground_truth', {})
 
     # Fields to evaluate
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating"]
 
     # Perform comparison
     results = {
@@ -98,8 +102,8 @@ def evaluate_extraction(processed_json_path: Path, ground_truth_path: Path) -> d
                 exact_match = True
             else:
                 exact_match = False
-        elif field_name == "module_count":
-            # Integer field: exact match
+        elif field_name in ("module_count", "main_bus_amp_rating", "main_breaker_amp_rating"):
+            # Integer fields: exact match
             if isinstance(expected_norm, int) and isinstance(actual_norm, int):
                 exact_match = expected_norm == actual_norm
             elif expected_norm == "" and actual_norm == "":

@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for eight core fields.
+"""Minimal candidate-field extractor for ten core fields.
 
-Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, and battery_model in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, battery_model, main_bus_amp_rating, and main_breaker_amp_rating in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -80,6 +80,24 @@ LABEL_PATTERNS = {
         r"energy\s+storage\s+system\s+model\s*:?",
         r"battery\s+storage\s*:",         # Require colon to avoid matching narrative
         r"battery\s+energy\s+storage\s*:", # "Battery Energy Storage: Yes - Tesla Powerwall 2"
+    ],
+    "main_bus_amp_rating": [
+        r"main\s+bus\s+amp(?:ere)?\s+rating\s*:?",
+        r"main\s+bus\s+rating\s*:?",
+        r"busbar\s+rating\s*:?",
+        r"busbar\s+amp(?:ere)?\s+rating\s*:?",
+        r"main\s+bus\s*:?",
+        r"bus\s+rating\s*:?",
+        r"panel\s+busbar\s+rating\s*:?",
+    ],
+    "main_breaker_amp_rating": [
+        r"main\s+breaker\s+amp(?:ere)?\s+rating\s*:?",
+        r"main\s+breaker\s+rating\s*:?",
+        r"main\s+breaker\s*/\s*service\s+disconnect\s+amp(?:ere)?\s+rating\s*:?",
+        r"main\s+breaker\s*:?",
+        r"service\s+disconnect\s+amp(?:ere)?\s+rating\s*:?",
+        r"main\s+service\s+breaker\s*:?",
+        r"service\s+panel\s+main\s+breaker\s*:?",
     ],
 }
 
@@ -194,6 +212,29 @@ STOP_LABELS = {
         r"quantity",
         r"specifications",
     ],
+    "main_bus_amp_rating": [
+        r"main\s+breaker",
+        r"pv\s+breaker",
+        r"photovoltaic\s+breaker",
+        r"service\s+disconnect",
+        r"point\s+of\s+connection",
+        r"interconnection",
+        r"grounding",
+        r"nominal",
+        r"voltage",
+        r"rapid\s+shutdown",
+    ],
+    "main_breaker_amp_rating": [
+        r"main\s+bus",
+        r"busbar",
+        r"pv\s+breaker",
+        r"photovoltaic\s+breaker",
+        r"point\s+of\s+connection",
+        r"interconnection",
+        r"grounding",
+        r"nominal\s+voltage",
+        r"grid\s+voltage",
+    ],
 }
 
 
@@ -260,6 +301,8 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "inverter_model": 100, # String field, model names can be long
         "battery_present": 150, # Boolean field, may have descriptive text
         "battery_model": 100,  # String field, battery model names
+        "main_bus_amp_rating": 50,     # Integer field, short value
+        "main_breaker_amp_rating": 50, # Integer field, short value
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -430,6 +473,58 @@ def parse_integer_value(value: str) -> Optional[int]:
     return None
 
 
+def parse_amperage_rating(value: str) -> Optional[int]:
+    """Parse an amperage rating from text.
+
+    Handles formats like:
+    - "200"
+    - "200A"
+    - "200 amps"
+    - "200 Amp"
+    - "200 AMP"
+    - "225A bus, compliant with 120%"
+
+    Args:
+        value: Raw text containing an amperage rating
+
+    Returns:
+        Parsed integer amperage value or None if invalid
+    """
+    # Take only the first line to avoid contamination from multi-line extraction
+    first_line = value.split('\n')[0].strip()
+
+    # Look for amperage pattern: number followed by optional "A" or "amp" unit
+    # This should match before any voltage patterns (which have "V")
+    amp_pattern = r'(\d+)\s*a(?:mp(?:s|ere)?(?:s)?)?(?:\s|,|;|$|\s+\w+)'
+    amp_match = re.search(amp_pattern, first_line, re.IGNORECASE)
+
+    if amp_match:
+        try:
+            num = int(amp_match.group(1))
+            # Sanity check for amperage rating (typically 50-600 for service panels)
+            # Covers residential (100A, 125A, 150A, 200A) and commercial (400A, 600A)
+            if 50 <= num <= 600:
+                return num
+        except ValueError:
+            pass
+
+    # Fallback: look for standalone number in plausible range (if no amp units found)
+    # Only use this if no voltage or wattage indicators present
+    if not re.search(r'\d+\s*[vw](?:olt|att)?', first_line, re.IGNORECASE):
+        # Reject if it contains model-like patterns (letters mixed with numbers)
+        if not re.search(r'[a-z]\d+|[a-z]-\d+|\d+-[a-z]', first_line, re.IGNORECASE):
+            number_match = re.search(r'(\d+)', first_line)
+            if number_match:
+                try:
+                    num = int(number_match.group(1))
+                    if 50 <= num <= 600:
+                        return num
+                except ValueError:
+                    pass
+
+    return None
+
+
 def parse_boolean_value(value: str) -> Optional[bool]:
     """Parse a boolean value from text.
 
@@ -541,6 +636,9 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
 
     if field_name == "module_count":
         return parse_integer_value(value)
+
+    if field_name in ("main_bus_amp_rating", "main_breaker_amp_rating"):
+        return parse_amperage_rating(value)
 
     if field_name == "battery_present":
         return parse_boolean_value(value)
@@ -686,7 +784,7 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating"]
 
     for field_name in target_fields:
         best_result = None
