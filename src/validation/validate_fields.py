@@ -269,6 +269,51 @@ def validate_required_core_fields_present(
     )
 
 
+def validate_main_bus_vs_breaker_reasonable(
+    main_bus_amp_rating: Optional[int],
+    main_breaker_amp_rating: Optional[int]
+) -> tuple[str, str]:
+    """Check that main breaker rating does not exceed main bus rating.
+
+    Logic:
+    - If both values are present and main_breaker > main_bus → REVIEW_REQUIRED
+    - If both values are present and main_breaker ≤ main_bus → PASS
+    - If either value is missing/null → REVIEW_REQUIRED
+
+    Args:
+        main_bus_amp_rating: Main bus amperage rating (or None)
+        main_breaker_amp_rating: Main breaker amperage rating (or None)
+
+    Returns:
+        Tuple of (status, explanation)
+    """
+    # Missing data - needs review
+    if main_bus_amp_rating is None:
+        return (
+            REVIEW_REQUIRED,
+            "main_bus_amp_rating not available - cannot validate service panel"
+        )
+
+    if main_breaker_amp_rating is None:
+        return (
+            REVIEW_REQUIRED,
+            "main_breaker_amp_rating not available - cannot validate service panel"
+        )
+
+    # Both values present - check if breaker exceeds bus rating
+    if main_breaker_amp_rating > main_bus_amp_rating:
+        return (
+            REVIEW_REQUIRED,
+            f"Main breaker ({main_breaker_amp_rating}A) exceeds bus rating ({main_bus_amp_rating}A)"
+        )
+
+    # Breaker rating is reasonable (≤ bus rating)
+    return (
+        PASS,
+        f"Main breaker ({main_breaker_amp_rating}A) does not exceed bus rating ({main_bus_amp_rating}A)"
+    )
+
+
 def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str]]:
     """Run all validation rules on extracted field data.
 
@@ -290,6 +335,8 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
     module_count = extractions.get('module_count', {}).get('candidate_value')
     system_size_kw = extractions.get('system_size_kw', {}).get('candidate_value')
     inverter_model = extractions.get('inverter_model', {}).get('candidate_value')
+    main_bus_amp_rating = extractions.get('main_bus_amp_rating', {}).get('candidate_value')
+    main_breaker_amp_rating = extractions.get('main_breaker_amp_rating', {}).get('candidate_value')
 
     # Run each rule
     results['required_core_fields_present'] = validate_required_core_fields_present(
@@ -310,6 +357,10 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
 
     results['inverter_model_required'] = validate_inverter_model_required(
         inverter_model
+    )
+
+    results['main_bus_vs_breaker_reasonable'] = validate_main_bus_vs_breaker_reasonable(
+        main_bus_amp_rating, main_breaker_amp_rating
     )
 
     return results

@@ -85,6 +85,7 @@ LABEL_PATTERNS = {
         r"main\s+bus\s+amp(?:ere)?\s+rating\s*:?",
         r"main\s+bus\s+rating\s*:?",
         r"busbar\s+rating\s*:?",
+        r"bus\s+bar\s+rating\s*:?",  # Match "bus bar rating" (two words)
         r"busbar\s+amp(?:ere)?\s+rating\s*:?",
         r"main\s+bus\s*:?",
         r"bus\s+rating\s*:?",
