@@ -1,14 +1,20 @@
 # Field Schema
 
-This document defines the target fields for v1 extraction. These fields represent the minimum viable set of information needed to validate a solar permit application.
+This document defines the current extracted fields (Phase 1-2) for solar permit and SolarAPP approval document intelligence.
 
-**Note**: The field schema is evolving to support both permit packets and SolarAPP approval documents. See [ROADMAP.md](../ROADMAP.md) for planned additions including:
-- Service/interconnection fields (`main_bus_amp_rating`, `main_breaker_amp_rating`, `grid_voltage`)
-- Approval metadata (`approval_id`, `ahj`, `project_type`)
-- Equipment manufacturer splits (`module_manufacturer`, `inverter_manufacturer`)
-- AC/DC system size split (`system_size_ac_kw`, `system_size_dc_kw`)
+**Current status:**
+- **Phase 1 complete**: 10 fields extracted, 6 validation rules
+- **Phase 2 in progress**: Service panel fields (bus/breaker ratings) added, grid_voltage/utility_service/project_type next
 
-The fields below represent the **current v1 schema**.
+**For future field planning:**
+- See [ROADMAP.md](../ROADMAP.md) for phased implementation plan (Phases 2-7)
+- See [field_roadmap.md](field_roadmap.md) for comprehensive field universe (~60-70 total candidate fields)
+
+**Document types supported:**
+- Permit packets (primary)
+- SolarAPP approval documents (emerging, Phase 3+)
+
+The fields below represent the **current implementation** (Phase 1-2).
 
 ## Target Fields
 
@@ -86,17 +92,6 @@ The fields below represent the **current v1 schema**.
   - May include quantity in same field
   - Version/revision codes often present
 
-### main_service_panel_rating
-- **Description**: Amperage rating of the home's main electrical panel
-- **Type**: `integer`
-- **Required**: Strongly recommended
-- **Example**: 200
-- **Extraction Challenges**:
-  - Units may be written as "200A", "200 amps", "200 Amp"
-  - May be abbreviated as "MSP" or "Main Panel"
-  - Sometimes on electrical diagram only
-  - Can be confused with sub-panel ratings
-
 ### battery_present
 - **Description**: Whether an energy storage system (battery) is included
 - **Type**: `boolean`
@@ -118,23 +113,47 @@ The fields below represent the **current v1 schema**.
   - Capacity may or may not be included
   - Sometimes in separate attachment
 
-## Sample JSON Output
+### main_bus_amp_rating
+- **Description**: Amperage rating of the main service panel busbar
+- **Type**: `integer`
+- **Required**: Strongly recommended (Phase 2)
+- **Example**: 225
+- **Extraction Challenges**:
+  - Units may be written as "225A", "225 amps", "225A bus"
+  - May be labeled as "busbar rating", "bus bar rating", "main bus rating"
+  - Sometimes on electrical diagram only
+  - Can be confused with breaker ratings
+- **Schema Evolution Note**: Added in Phase 2. Enables service panel validation including 120% rule (Phase 6).
+
+### main_breaker_amp_rating
+- **Description**: Amperage rating of the main service panel breaker
+- **Type**: `integer`
+- **Required**: Strongly recommended (Phase 2)
+- **Example**: 200
+- **Extraction Challenges**:
+  - Units may be written as "200A", "200 amps", "200 Amp"
+  - May be labeled as "main breaker", "service disconnect", "main service breaker"
+  - Sometimes on electrical diagram only
+  - Typically should not exceed bus rating
+- **Schema Evolution Note**: Added in Phase 2. Enables service panel validation. Must be ≤ main_bus_amp_rating.
+
+## Sample JSON Output (Phase 1-2)
 
 ```json
 {
   "document_id": "permit_12345",
-  "extraction_timestamp": "2026-04-07T14:30:00Z",
+  "extraction_timestamp": "2026-04-27T14:30:00Z",
   "fields": {
     "project_address": "123 Main Street, San Jose, CA 95112",
     "jurisdiction": "City of San Jose",
     "contractor_name": "Sunrun Inc.",
     "system_size_kw": 8.5,
     "module_count": 20,
-    "module_model": "SunPower SPR-X22-370",
     "inverter_model": "SolarEdge SE7600H-US",
-    "main_service_panel_rating": 200,
     "battery_present": true,
-    "battery_model": "Tesla Powerwall 2"
+    "battery_model": "Tesla Powerwall 2",
+    "main_bus_amp_rating": 225,
+    "main_breaker_amp_rating": 200
   },
   "confidence_scores": {
     "project_address": 0.95,
@@ -142,31 +161,42 @@ The fields below represent the **current v1 schema**.
     "contractor_name": 0.92,
     "system_size_kw": 0.89,
     "module_count": 0.94,
-    "module_model": 0.91,
     "inverter_model": 0.87,
-    "main_service_panel_rating": 0.78,
     "battery_present": 1.0,
-    "battery_model": 0.85
+    "battery_model": 0.85,
+    "main_bus_amp_rating": 0.80,
+    "main_breaker_amp_rating": 0.80
   }
 }
 ```
 
-## Field Prioritization for v1
+**Note**: This sample reflects Phase 1-2 fields. `module_model` is not yet extracted. See [field_roadmap.md](field_roadmap.md) for full field universe.
 
-**Must extract (pipeline fails without these)**:
-- project_address
-- contractor_name
-- system_size_kw
+## Field Prioritization
 
-**Should extract (warnings if missing)**:
-- module_count
-- module_model
-- inverter_model
-- battery_present
+### Phase 1-2 Status (Current)
 
-**Nice to have (log if missing but don't fail)**:
-- jurisdiction
-- main_service_panel_rating
-- battery_model (if battery_present)
+**Extracted and validated (Phase 1 complete)**:
+- project_address ✓
+- contractor_name ✓
+- jurisdiction ✓
+- system_size_kw ✓
+- module_count ✓
+- inverter_model ✓
+- battery_present ✓
+- battery_model ✓
+- main_bus_amp_rating ✓ (Phase 2)
+- main_breaker_amp_rating ✓ (Phase 2)
 
-This prioritization helps focus initial extraction efforts on the most critical and most commonly present fields.
+**Next to implement (Phase 2 in progress)**:
+- grid_voltage (service panel voltage)
+- utility_service_rating (utility service amperage)
+- project_type (residential, commercial, etc.)
+
+**Phase 3+ (see field_roadmap.md)**:
+- approval_id, ahj, scope_of_work (SolarAPP metadata)
+- module_manufacturer, inverter_manufacturer (equipment completeness)
+- system_size_ac_kw, system_size_dc_kw (AC/DC split, breaking change)
+- Many more fields...
+
+For complete field planning, see [field_roadmap.md](field_roadmap.md) and [ROADMAP.md](../ROADMAP.md).

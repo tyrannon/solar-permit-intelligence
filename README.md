@@ -45,7 +45,8 @@ solar-permit-intelligence/
 ├── .gitignore                  # Git ignore rules
 ├── docs/                       # Documentation
 │   ├── project_scope.md        # Detailed scope and constraints
-│   ├── field_schema.md         # Target extraction fields
+│   ├── field_schema.md         # Current extracted fields (Phase 1-2)
+│   ├── field_roadmap.md        # Comprehensive field universe (all phases)
 │   ├── rules_v1.md             # Validation rules
 │   ├── failure_log.md          # Template for tracking failures
 │   └── architecture.md         # System design notes
@@ -68,21 +69,33 @@ solar-permit-intelligence/
 
 ## Current Status
 
-**Status**: Initial scaffolding for v1
+**Status**: Phase 1-2 implementation
 **Date**: April 2026
+**Progress**: 10 fields extracted, 6 validation rules, permit packets working
 
-The repository structure is in place. No extraction, classification, or rules logic has been implemented yet. This is the starting point.
+**Phase 1 (Complete)**:
+- ✓ 10 core fields extracted (address, contractor, jurisdiction, system sizing, module/inverter/battery, service panel)
+- ✓ 6 validation rules (core fields, battery consistency, module sizing, inverter required, service panel reasonableness)
+- ✓ Evaluation against ground truth working
+- ✓ Permit packet extraction functional
 
-## 30-Day Goal
+**Phase 2 (In Progress)**:
+- ✓ Service panel fields (main_bus_amp_rating, main_breaker_amp_rating) extracted
+- ✓ Service panel validation (main_bus_vs_breaker_reasonable) implemented
+- [ ] Grid voltage extraction (next)
+- [ ] Utility service rating extraction (next)
+- [ ] Project type extraction (next)
 
-By day 30, the system should:
-- Ingest 10-20 real solar permit PDFs
-- Classify document types with basic accuracy
-- Extract 8-10 structured fields per permit
-- Apply 5-8 deterministic validation rules
-- Generate an evaluation report comparing extracted data to ground truth
-- Document failure modes and extraction accuracy by field
-- Have a clear plan for v2 improvements
+**See [ROADMAP.md](ROADMAP.md) for phased implementation plan through Phase 7.**
+
+## Project Goals
+
+This project demonstrates practical AI engineering on messy real-world permit documents:
+- Extract structured data from semi-structured PDFs
+- Apply deterministic validation rules
+- Evaluate extraction accuracy against ground truth
+- Document failure modes clearly
+- Support both permit packets and SolarAPP approval documents
 
 Success means: **a working pipeline with measured performance, not perfect accuracy.**
 

@@ -38,18 +38,25 @@ Solar permit documents are an ideal real-world AI engineering challenge because 
 - **Combine multiple AI tasks**: Classification, extraction, validation, evaluation
 - **Are portfolio-worthy**: Demonstrates end-to-end thinking beyond toy datasets
 
-## v1 Objective
+## v1 Objective (Revised for Permit + SolarAPP Evolution)
 
 Build a pipeline that:
-1. Ingests 10-20 solar permit PDF samples
-2. Preprocesses them (PDF to image/text, page splitting)
-3. Classifies document/page types
-4. Extracts 8-10 key fields per permit set
-5. Applies 5-8 deterministic validation rules
+1. Ingests solar permit PDFs and SolarAPP approval documents
+2. Preprocesses them (PDF to text, page splitting)
+3. Identifies document/page types (top-level forms vs. diagrams)
+4. Extracts 10+ key fields per document (expanding to 25+ through Phase 6)
+5. Applies 6+ deterministic validation rules (expanding to 18+ through Phase 6)
 6. Compares results to labeled ground truth
-7. Generates a failure log and accuracy report
+7. Generates evaluation reports with accuracy metrics
 
 **Success criteria**: The pipeline runs end-to-end on real documents and produces measurable accuracy metrics. Accuracy doesn't need to be perfect, but failure modes should be well-documented.
+
+**Current status (Phase 1-2)**:
+- 10 fields extracted (address, contractor, jurisdiction, system sizing, equipment, service panel)
+- 6 validation rules (completeness, battery consistency, sizing, service panel reasonableness)
+- Permit packets working, SolarAPP support in Phase 3
+
+**See [ROADMAP.md](../ROADMAP.md) for phased implementation plan.**
 
 ## v1 Non-Goals
 
@@ -67,19 +74,37 @@ Things explicitly **not** in scope for the MVP:
 - Cost optimization
 - Security hardening
 
-## Definition of Done (Day 30)
+## Definition of Done (Phase-Based)
 
-The project is "done" when:
-- [ ] 10-20 real permit PDFs are in `data/raw/`
-- [ ] Ground truth labels exist in `data/labeled/`
-- [ ] Pipeline runs end-to-end from ingestion to evaluation
-- [ ] Extraction accuracy is measured per-field
-- [ ] Rule validation results are logged
-- [ ] A failure log documents at least 10 specific failure cases
-- [ ] A summary report shows overall performance
-- [ ] README and docs accurately reflect the system state
-- [ ] Code is clean enough to show to a technical reviewer
-- [ ] A clear "v2 roadmap" section exists based on learnings
+### Phase 1 (Complete) ✓
+- [x] 4-6 permit packet fixtures in `data/processed/`
+- [x] Ground truth labels exist in `data/labeled/`
+- [x] Pipeline runs end-to-end from ingestion to evaluation
+- [x] 10 fields extracted and validated
+- [x] 6 validation rules implemented
+- [x] Evaluation accuracy measured per-field
+- [x] README and docs accurately reflect the system state
+- [x] Code is clean and well-structured
+
+### Phase 2 (In Progress)
+- [x] Service panel fields (main_bus_amp_rating, main_breaker_amp_rating) extracted
+- [x] Service panel validation (main_bus_vs_breaker_reasonable) working
+- [ ] Grid voltage, utility service rating, project type extracted
+- [ ] Type-based validation thresholds implemented
+- [ ] All existing fixtures updated with new fields
+- [ ] Evaluation shows 80%+ accuracy on service panel fields
+
+### Phase 3-6 (See ROADMAP.md)
+Each phase has specific field and validation targets. See [ROADMAP.md](../ROADMAP.md) for detailed phase definitions.
+
+### Long-Term Success Criteria
+The project will be considered successful when:
+- Pipeline supports both permit packets and SolarAPP approvals
+- 25+ fields extracted with clear accuracy metrics
+- 15+ validation rules covering key permit review checks
+- Failure modes are well-documented
+- Codebase is maintainable and well-structured
+- Project can be demo'd in 10-15 minutes to a technical audience
 
 ## Risks and Constraints
 
