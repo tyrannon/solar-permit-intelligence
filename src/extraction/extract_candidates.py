@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for ten core fields.
+"""Minimal candidate-field extractor for eleven core fields.
 
-Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, battery_model, main_bus_amp_rating, and main_breaker_amp_rating in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, battery_model, main_bus_amp_rating, main_breaker_amp_rating, and utility_service_rating in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -99,6 +99,12 @@ LABEL_PATTERNS = {
         r"service\s+disconnect\s+amp(?:ere)?\s+rating\s*:?",
         r"main\s+service\s+breaker\s*:?",
         r"service\s+panel\s+main\s+breaker\s*:?",
+    ],
+    "utility_service_rating": [
+        r"utility\s+service\s+(?:amp(?:ere)?\s+)?rating\s*:?",
+        r"utility\s+service\s+(?:feed\s+)?rated\s+(?:for|at)\s*:?",
+        r"utility\s+service\s+feed\s*:?",
+        r"what\s+is\s+the\s+utility\s+service\s+(?:feed\s+)?rated\s+(?:for|at)\s*[:\?]?",
     ],
 }
 
@@ -236,6 +242,18 @@ STOP_LABELS = {
         r"nominal\s+voltage",
         r"grid\s+voltage",
     ],
+    "utility_service_rating": [
+        r"main\s+breaker",
+        r"main\s+bus",
+        r"busbar",
+        r"pv\s+breaker",
+        r"service\s+panel",
+        r"point\s+of\s+connection",
+        r"interconnection",
+        r"grounding",
+        r"grid\s+voltage",
+        r"voltage",
+    ],
 }
 
 
@@ -304,6 +322,7 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "battery_model": 100,  # String field, battery model names
         "main_bus_amp_rating": 50,     # Integer field, short value
         "main_breaker_amp_rating": 50, # Integer field, short value
+        "utility_service_rating": 50,  # Integer field, short value
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -638,7 +657,7 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
     if field_name == "module_count":
         return parse_integer_value(value)
 
-    if field_name in ("main_bus_amp_rating", "main_breaker_amp_rating"):
+    if field_name in ("main_bus_amp_rating", "main_breaker_amp_rating", "utility_service_rating"):
         return parse_amperage_rating(value)
 
     if field_name == "battery_present":
@@ -785,7 +804,7 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating", "utility_service_rating"]
 
     for field_name in target_fields:
         best_result = None
