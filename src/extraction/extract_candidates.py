@@ -1,6 +1,6 @@
-"""Minimal candidate-field extractor for eleven core fields.
+"""Minimal candidate-field extractor for twelve core fields.
 
-Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, battery_model, main_bus_amp_rating, main_breaker_amp_rating, and utility_service_rating in processed JSON.
+Searches for project_address, contractor_name, jurisdiction, system_size_kw, module_count, inverter_model, battery_present, battery_model, main_bus_amp_rating, main_breaker_amp_rating, utility_service_rating, and grid_voltage in processed JSON.
 Uses simple label-matching and proximity-based extraction with improved boundary detection.
 """
 
@@ -105,6 +105,11 @@ LABEL_PATTERNS = {
         r"utility\s+service\s+(?:feed\s+)?rated\s+(?:for|at)\s*:?",
         r"utility\s+service\s+feed\s*:?",
         r"what\s+is\s+the\s+utility\s+service\s+(?:feed\s+)?rated\s+(?:for|at)\s*[:\?]?",
+    ],
+    "grid_voltage": [
+        r"single\s+phase\s+grid\s+voltage\s*:?",  # most specific first
+        r"grid\s+voltage\s*:?",
+        r"nominal\s+operating\s+ac\s+voltage\s*:?",
     ],
 }
 
@@ -273,6 +278,15 @@ STOP_LABELS = {
         r"grid\s+voltage",
         r"voltage",
     ],
+    "grid_voltage": [
+        r"maximum\s+combined",   # SolarAPP: "...ac voltage: Volts \n Maximum Combined Supply OCPDs"
+        r"busbar\s+rating",
+        r"main\s+breaker",
+        r"main\s+bus",
+        r"frequency",
+        r"point\s+of\s+connection",
+        r"interconnection",
+    ],
 }
 
 
@@ -342,6 +356,7 @@ def extract_value_after_label(page_text: str, label_end_pos: int, field_name: st
         "main_bus_amp_rating": 50,     # Integer field, short value
         "main_breaker_amp_rating": 50, # Integer field, short value
         "utility_service_rating": 50,  # Integer field, short value
+        "grid_voltage": 50,            # Integer field, short value
     }
     max_length = max_lengths.get(field_name, 100)
 
@@ -564,6 +579,55 @@ def parse_amperage_rating(value: str) -> Optional[int]:
     return None
 
 
+def parse_grid_voltage(value: str) -> Optional[int]:
+    """Parse a grid (AC service) voltage as a clean integer.
+
+    Handles formats like:
+    - "240"
+    - "240V"
+    - "208 Volts"
+    - "277VAC"
+
+    Conservative by design:
+    - Only looks at the first line, to avoid pulling numbers from
+      following text (e.g. "Volts \\n Maximum Combined ... Busbar Rating 100").
+    - Ignores the V / volts / VAC unit.
+    - Requires exactly one integer in the value. A split notation like
+      "120/240V" is treated as ambiguous and returns None.
+    - Applies a sanity range for nominal AC service voltage (100-600),
+      which covers 120, 208, 240, 277, 480.
+
+    Args:
+        value: Raw text containing a grid voltage
+
+    Returns:
+        Parsed integer voltage or None if missing or ambiguous
+    """
+    # Only consider the first line to avoid contamination from later text.
+    first_line = value.split('\n')[0]
+
+    # Find all integers on that line. The unit (V / volts) carries no digits,
+    # so we can ignore it simply by not matching letters.
+    numbers = re.findall(r'\d+', first_line)
+
+    # Conservative: a single, unambiguous integer only.
+    # "120/240" -> two numbers -> ambiguous -> None.
+    # blank "Volts" -> zero numbers -> None.
+    if len(numbers) != 1:
+        return None
+
+    try:
+        num = int(numbers[0])
+    except ValueError:
+        return None
+
+    # Sanity range for nominal AC service voltage.
+    if 100 <= num <= 600:
+        return num
+
+    return None
+
+
 def parse_boolean_value(value: str) -> Optional[bool]:
     """Parse a boolean value from text.
 
@@ -678,6 +742,9 @@ def clean_extracted_value(value: str, field_name: str) -> Optional[Union[str, fl
 
     if field_name in ("main_bus_amp_rating", "main_breaker_amp_rating", "utility_service_rating"):
         return parse_amperage_rating(value)
+
+    if field_name == "grid_voltage":
+        return parse_grid_voltage(value)
 
     if field_name == "battery_present":
         return parse_boolean_value(value)
@@ -823,7 +890,7 @@ def extract_candidates(json_path: Path) -> dict:
         "extractions": {}
     }
 
-    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating", "utility_service_rating"]
+    target_fields = ["project_address", "contractor_name", "jurisdiction", "system_size_kw", "module_count", "inverter_model", "battery_present", "battery_model", "main_bus_amp_rating", "main_breaker_amp_rating", "utility_service_rating", "grid_voltage"]
 
     for field_name in target_fields:
         best_result = None
