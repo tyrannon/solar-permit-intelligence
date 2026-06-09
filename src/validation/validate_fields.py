@@ -314,6 +314,52 @@ def validate_main_bus_vs_breaker_reasonable(
     )
 
 
+def validate_utility_service_vs_panel_reasonable(
+    utility_service_rating: Optional[int],
+    main_breaker_amp_rating: Optional[int]
+) -> tuple[str, str]:
+    """Check that utility service rating is not smaller than the main breaker.
+
+    The utility service feeds the panel, so it must be at least as large as
+    the main breaker. A utility service smaller than the main breaker is an
+    electrical planning error (the service could not supply the full panel load).
+
+    Logic:
+    - If utility_service_rating < main_breaker_amp_rating → REVIEW_REQUIRED
+    - If utility_service_rating >= main_breaker_amp_rating → PASS
+    - If either value is missing → REVIEW_REQUIRED
+
+    Args:
+        utility_service_rating: Utility service amperage (or None)
+        main_breaker_amp_rating: Main breaker amperage (or None)
+
+    Returns:
+        Tuple of (status, explanation)
+    """
+    if utility_service_rating is None:
+        return (
+            REVIEW_REQUIRED,
+            "utility_service_rating not available - cannot validate against main breaker"
+        )
+
+    if main_breaker_amp_rating is None:
+        return (
+            REVIEW_REQUIRED,
+            "main_breaker_amp_rating not available - cannot validate against utility service"
+        )
+
+    if utility_service_rating < main_breaker_amp_rating:
+        return (
+            REVIEW_REQUIRED,
+            f"Utility service ({utility_service_rating}A) is smaller than main breaker ({main_breaker_amp_rating}A)"
+        )
+
+    return (
+        PASS,
+        f"Utility service ({utility_service_rating}A) is adequate for main breaker ({main_breaker_amp_rating}A)"
+    )
+
+
 def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str]]:
     """Run all validation rules on extracted field data.
 
@@ -337,6 +383,7 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
     inverter_model = extractions.get('inverter_model', {}).get('candidate_value')
     main_bus_amp_rating = extractions.get('main_bus_amp_rating', {}).get('candidate_value')
     main_breaker_amp_rating = extractions.get('main_breaker_amp_rating', {}).get('candidate_value')
+    utility_service_rating = extractions.get('utility_service_rating', {}).get('candidate_value')
 
     # Run each rule
     results['required_core_fields_present'] = validate_required_core_fields_present(
@@ -361,6 +408,10 @@ def run_all_validations(extractions: Dict[str, Any]) -> Dict[str, tuple[str, str
 
     results['main_bus_vs_breaker_reasonable'] = validate_main_bus_vs_breaker_reasonable(
         main_bus_amp_rating, main_breaker_amp_rating
+    )
+
+    results['utility_service_vs_panel_reasonable'] = validate_utility_service_vs_panel_reasonable(
+        utility_service_rating, main_breaker_amp_rating
     )
 
     return results

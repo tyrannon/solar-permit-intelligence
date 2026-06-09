@@ -62,3 +62,4 @@ data/labeled/*
 
 # Logs
 *.log
+.dual-graph/
