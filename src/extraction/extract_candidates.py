@@ -131,6 +131,14 @@ STOP_LABELS = {
         r"applicant\s+name",
     ],
     "contractor_name": [
+        r"contractor\s+license",      # Explicit "Contractor License" label
+        r"license\b",                  # Standalone "License" (word boundary to avoid matching within words)
+        r"contractor\s+address",       # "Contractor Address" label
+        r"primary\s+contact",          # "Primary Contact" label
+        r"contact\s+phone",            # "Contact Phone" label (different from "contractor phone")
+        r"system\s+design\s+summary",  # "System Design Summary" label (more specific than "system summary")
+        r"project\s+information",      # "Project Information" section header
+        r"permit\s+application\s+number", # "Permit Application Number" label
         r"contractor\s+contact",
         r"contractor\s+phone",
         r"contractor\s+email",
@@ -143,6 +151,9 @@ STOP_LABELS = {
         r"project\s+description",
     ],
     "jurisdiction": [
+        r"permit\s+application\s+number", # "Permit Application Number" - common next field
+        r"date\s+submitted",              # "Date Submitted" - common next field
+        r"project\s+information",         # "Project Information" section header
         r"building\s+division",
         r"permit\s+application\s+type",
         r"application\s+type",
@@ -203,6 +214,14 @@ STOP_LABELS = {
         r"system\s+overview",
     ],
     "battery_model": [
+        r"\(removed\s+from\s+final\s+scope\)", # Parenthetical note indicating removal
+        r"removed\s+from\s+(?:final\s+)?scope", # "removed from scope" text
+        r"proposed\s+work\s+description",  # "Proposed Work Description" section
+        r"scope\s+summary",                # "Scope Summary" section
+        r"system\s+design\s+summary",      # "System Design Summary" section
+        r"battery\s+present\b",            # "Battery Present" field (avoid confusion)
+        r"module\s+count",                 # "Module Count" field
+        r"inverter\b",                     # "Inverter" field (word boundary to avoid partial matches)
         r"battery\s+gateway",
         r"battery\s+inverter",
         r"battery\s+capacity",
