@@ -579,6 +579,41 @@ def parse_amperage_rating(value: str) -> Optional[int]:
     return None
 
 
+def extract_amperage_before_bus_label(page_text: str) -> Optional[tuple[int, str]]:
+    """Find a busbar rating written value-first, e.g. "200A busbar" or "225A bus".
+
+    Permit narratives often state the bus rating inline with the value before
+    the label ("Existing Service: 200A main breaker, 200A busbar") instead of
+    the label-then-value form the main patterns expect. The amperage must sit
+    immediately before the bus/busbar word, so narrative text like
+    "200A main breaker, avoiding busbar calculation" cannot match.
+
+    Args:
+        page_text: Full page text
+
+    Returns:
+        Tuple of (amperage, matched_text) or None if not found
+    """
+    match = re.search(
+        r'(\d+)\s*a(?:mp(?:ere)?s?)?\s+bus(?:\s*bar)?\b',
+        page_text,
+        re.IGNORECASE
+    )
+    if not match:
+        return None
+
+    try:
+        num = int(match.group(1))
+    except ValueError:
+        return None
+
+    # Same plausible service panel range as parse_amperage_rating
+    if 50 <= num <= 600:
+        return num, match.group(0).strip()
+
+    return None
+
+
 def parse_grid_voltage(value: str) -> Optional[int]:
     """Parse a grid (AC service) voltage as a clean integer.
 
@@ -805,6 +840,8 @@ def extract_field_from_page(field_name: str, page_text: str, page_num: int, is_f
 
     patterns = LABEL_PATTERNS.get(field_name, [])
 
+    failed_label_result = None
+
     for pattern in patterns:
         match = re.search(pattern, page_text, re.IGNORECASE)
         if match:
@@ -834,7 +871,8 @@ def extract_field_from_page(field_name: str, page_text: str, page_num: int, is_f
                 else:
                     note = "found label but no value text after it"
 
-                return {
+                # Hold the failure - a field-specific fallback below may still succeed
+                failed_label_result = {
                     "field_name": field_name,
                     "page_number": page_num,
                     "matched_label": label_text,
@@ -842,6 +880,26 @@ def extract_field_from_page(field_name: str, page_text: str, page_num: int, is_f
                     "confidence": 0.2,
                     "note": note
                 }
+                break
+
+    # Fallback for main_bus_amp_rating: busbar ratings often appear value-first
+    # ("200A busbar"), which label-then-value extraction cannot see.
+    # Lower confidence (0.7) so a label-based match (0.8) always wins.
+    if field_name == "main_bus_amp_rating":
+        bus_match = extract_amperage_before_bus_label(page_text)
+        if bus_match is not None:
+            amperage, matched_text = bus_match
+            return {
+                "field_name": field_name,
+                "page_number": page_num,
+                "matched_label": matched_text,
+                "candidate_value": amperage,
+                "confidence": 0.7,
+                "note": "found amperage immediately before bus/busbar mention (value-before-label)"
+            }
+
+    if failed_label_result is not None:
+        return failed_label_result
 
     # No match found
     return {
