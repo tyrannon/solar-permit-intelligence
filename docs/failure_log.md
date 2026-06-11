@@ -160,6 +160,20 @@ These are likely failure modes we expect to encounter based on the problem domai
 
 ---
 
+### 9. Instructional/Eligibility Text False Positives (OBSERVED)
+**Description**: On standard-plan templates, narrative text near field labels contains numbers that are not project values, and label-then-value extraction reads them as data. Observed 2026-06-11 on the `solar-pv-central-inverter-standard-plan---comprehensive` fixture (blank SolarAPP-style template).
+
+**Observed Examples**:
+- `main_bus_amp_rating` extracted 225 from the scope eligibility cap "busbar rating of 225A or less" (page 1) - the document has no actual bus rating
+- `main_breaker_amp_rating` extracted 220 from the code reference "load calculation per Article 220" (page 6) via the standalone-number fallback in `parse_amperage_rating`
+
+**Mitigation**:
+- Reject amperage values immediately followed by "or less" / "or more" (eligibility caps, not values)
+- Tighten the standalone-number fallback: do not accept a bare number preceded by "Article" or similar code-reference context
+- Longer term (Phase 3): document-class detection could lower confidence on instructional/template pages
+
+---
+
 ## Failure Metrics to Track
 
 Once real failures are logged, track:
